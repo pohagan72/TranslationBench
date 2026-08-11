@@ -5,6 +5,7 @@ import json
 import sys
 
 from . import corpora, hansard, metrics
+from . import usage as usage_mod
 from .report import write_reports
 from .translators import make_translator
 
@@ -63,7 +64,10 @@ def cmd_experiment(args):
 
     translator = make_translator(args.engine, args.model, thinking=args.thinking)
     runs = {}
+    usage_snapshots: dict[str, dict] = {}
     for mode in args.modes:
+        if hasattr(translator, "reset_usage"):
+            translator.reset_usage()
         print(f"Translating {len(sources)} segments ({mode} mode)...", flush=True)
         if mode == "sentence":
             candidates = translator.translate(
@@ -80,6 +84,8 @@ def cmd_experiment(args):
         else:
             sys.exit(f"Unknown mode: {mode}")
 
+        if hasattr(translator, "usage"):
+            usage_snapshots[mode] = translator.usage.snapshot()
         corpora.save_lines(f"{args.out_dir}/candidate.{mode}.txt", candidates)
         print(f"Scoring ({mode})...", flush=True)
         runs[mode] = metrics.score(
@@ -95,9 +101,16 @@ def cmd_experiment(args):
         )
         print(f"Wrote {json_path}\nWrote {html_path}")
 
+    if usage_snapshots:
+        usage_path = usage_mod.write_usage_report(args.out_dir, usage_snapshots)
+        print(f"Wrote {usage_path}")
+
     for mode, s in runs.items():
         comet = f", COMET {s.comet:.4f}" if s.comet is not None else ""
-        print(f"  {mode:>9}: BLEU {s.bleu:.2f}, chrF {s.chrf:.2f}{comet}")
+        cost_line = ""
+        if mode in usage_snapshots:
+            cost_line = f"  |  {usage_mod.format_summary(usage_snapshots[mode])}"
+        print(f"  {mode:>9}: BLEU {s.bleu:.2f}, chrF {s.chrf:.2f}{comet}{cost_line}")
 
 
 def main(argv=None):

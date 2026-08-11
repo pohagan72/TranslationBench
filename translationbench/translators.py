@@ -5,6 +5,8 @@ import os
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 
+from .usage import UsageTracker
+
 CLAUDE_MODEL = "claude-opus-5"
 GEMINI_MODEL_ENV = "GEMINI_MODEL"          # same env var Synzo reads in production
 # Google retired `gemini-1.5-flash-latest` (Synzo's historical default). Default
@@ -121,6 +123,11 @@ class GeminiTranslator(Translator):
         self.chunk_size = chunk_size
         self.max_workers = max_workers
         self.thinking = thinking
+        self.usage = UsageTracker(self.model_name)
+
+    def reset_usage(self):
+        """Start a fresh usage scope (call at the start of each mode)."""
+        self.usage = UsageTracker(self.model_name)
 
     def translate(self, segments, source_lang, target_lang, document_context):
         if document_context:
@@ -150,6 +157,7 @@ class GeminiTranslator(Translator):
             contents=prompt,
             config=types.GenerateContentConfig(**cfg_kwargs),
         )
+        self.usage.record(getattr(response, "usage_metadata", None))
         translations = json.loads(response.text)["translations"]
         if len(translations) != len(segments):
             raise ValueError(
@@ -166,6 +174,7 @@ class GeminiTranslator(Translator):
             response = self.client.models.generate_content(
                 model=self.model_name, contents=prompt
             )
+            self.usage.record(getattr(response, "usage_metadata", None))
             if not (response and response.text):
                 raise RuntimeError(f"Gemini returned no text for segment: {segment[:80]!r}")
             return response.text.strip()
@@ -223,6 +232,7 @@ class GeminiTranslator(Translator):
                     contents=prompt,
                     config=build_config(use_cache=use_cache),
                 )
+                self.usage.record(getattr(response, "usage_metadata", None))
             except Exception as exc:
                 # Surface the full API response body so we can see what the
                 # server actually rejected (the SDK's default __repr__ hides it).
