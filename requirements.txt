@@ -1,0 +1,4 @@
+sacrebleu>=2.4
+anthropic>=0.86
+# Optional (COMET semantic scores; requires torch — Python 3.11/3.12 recommended):
+#   pip install "unbabel-comet>=2.2"

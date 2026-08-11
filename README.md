@@ -1,0 +1,73 @@
+# TranslationBench
+
+Benchmark harness for machine translation quality. Scores candidate translations
+with **BLEU** (sacreBLEU) and **COMET** (Unbabel `wmt22-comet-da`), and runs the
+experiment this repo exists for: **does document-level context measurably improve
+LLM translation quality over sentence-by-sentence translation?**
+
+Built by [Red Maple Research](https://redmapleresearch.ca). Apache 2.0.
+
+## Why
+
+Traditional CAT (computer-assisted translation) workflows translate segment by
+segment — each sentence in isolation. LLMs can read the whole document before
+translating any sentence of it. This harness measures that difference on
+sentence-aligned parallel corpora, keeping a strict 1:1 segment mapping so
+standard corpus metrics apply.
+
+## Quickstart
+
+```bash
+# Python 3.11 or 3.12 recommended (COMET depends on torch; check torch support
+# before using a newer interpreter). BLEU-only scoring works anywhere.
+python -m venv .venv && . .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pip install "unbabel-comet>=2.2"               # optional, needed for COMET scores
+
+# Score an existing candidate translation
+python -m translationbench score \
+  --source data/src.en.txt --reference data/ref.fr.txt \
+  --candidate out/candidate.fr.txt --comet
+
+# Fetch a standard test set (WMT14 EN-FR) via sacreBLEU
+python -m translationbench fetch --testset wmt14 --langpair en-fr --out-dir data/
+
+# Run the full with-context vs without-context experiment (needs ANTHROPIC_API_KEY)
+python -m translationbench experiment \
+  --source data/src.en.txt --reference data/ref.fr.txt \
+  --source-lang English --target-lang "Canadian French" \
+  --out-dir out/
+```
+
+All text files are one segment per line, UTF-8, aligned by line number.
+
+## The experiment
+
+`experiment` translates the same source segments twice with the same model:
+
+1. **Sentence mode** — each segment translated in isolation (the CAT-tool baseline)
+2. **Document mode** — segments translated with the full document provided as context
+
+Both modes emit exactly one output segment per input segment, so BLEU and COMET
+compare like with like. The report (JSON + HTML) shows corpus-level scores for
+both modes plus per-segment COMET deltas.
+
+## Corpora
+
+Any sentence-aligned parallel text works. Recommended for Canadian
+government-register EN↔FR: the **Canadian Hansard** (parliamentary proceedings).
+WMT test sets are available via `fetch` as a generic fallback. Client-provided
+translation memories (TMX) can be converted to aligned text files — segments
+with 1:1 alignment only.
+
+## Notes
+
+- The translation adapter uses the Anthropic API (`claude-opus-5`) with
+  structured outputs to guarantee segment alignment. Server-side refusal
+  fallbacks are enabled. Other engines can be benchmarked by implementing
+  `Translator` (see `translationbench/translators.py`) or by scoring their
+  output files directly with `score`.
+- COMET's `wmt22-comet-da` model is a ~1.5 GB one-time download; it runs on CPU
+  (slow) or GPU (fast).
+- This tool evaluates translators; it is not one. It deliberately lives outside
+  any translation product so results are independently reproducible.
