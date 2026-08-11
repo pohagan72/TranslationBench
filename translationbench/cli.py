@@ -6,7 +6,7 @@ import sys
 
 from . import corpora, metrics
 from .report import write_reports
-from .translators import MODEL, ClaudeTranslator
+from .translators import make_translator
 
 
 def cmd_score(args):
@@ -26,7 +26,7 @@ def cmd_fetch(args):
 
 def cmd_translate(args):
     segments = corpora.load_lines(args.input)
-    translator = ClaudeTranslator(model=args.model)
+    translator = make_translator(args.engine, args.model)
     out = translator.translate(
         segments, args.source_lang, args.target_lang,
         document_context=(args.mode == "context"),
@@ -43,7 +43,7 @@ def cmd_experiment(args):
     if args.limit:
         sources, references = sources[: args.limit], references[: args.limit]
 
-    translator = ClaudeTranslator(model=args.model)
+    translator = make_translator(args.engine, args.model)
     runs = {}
     for mode, with_doc in (("sentence", False), ("context", True)):
         print(f"Translating {len(sources)} segments ({mode} mode)...", flush=True)
@@ -57,7 +57,7 @@ def cmd_experiment(args):
         )
 
     json_path, html_path = write_reports(
-        args.out_dir, args.model, len(sources), runs["sentence"], runs["context"]
+        args.out_dir, translator.label, len(sources), runs["sentence"], runs["context"]
     )
     print(f"Wrote {json_path}\nWrote {html_path}")
     for mode, s in runs.items():
@@ -92,7 +92,9 @@ def main(argv=None):
     p.add_argument("--mode", choices=["sentence", "context"], default="context")
     p.add_argument("--source-lang", required=True)
     p.add_argument("--target-lang", required=True)
-    p.add_argument("--model", default=MODEL)
+    p.add_argument("--engine", choices=["gemini", "claude"], default="gemini")
+    p.add_argument("--model", default=None,
+                   help="Override the engine default (Gemini: $GEMINI_MODEL)")
     p.set_defaults(func=cmd_translate)
 
     p = sub.add_parser(
@@ -104,7 +106,9 @@ def main(argv=None):
     p.add_argument("--source-lang", required=True)
     p.add_argument("--target-lang", required=True)
     p.add_argument("--out-dir", default="out")
-    p.add_argument("--model", default=MODEL)
+    p.add_argument("--engine", choices=["gemini", "claude"], default="gemini")
+    p.add_argument("--model", default=None,
+                   help="Override the engine default (Gemini: $GEMINI_MODEL)")
     p.add_argument("--limit", type=int, help="Only use the first N segments")
     p.add_argument("--no-comet", action="store_true", help="Skip COMET (BLEU/chrF only)")
     p.add_argument("--gpus", type=int, default=0)

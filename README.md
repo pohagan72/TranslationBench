@@ -32,7 +32,8 @@ python -m translationbench score \
 # Fetch a standard test set (WMT14 EN-FR) via sacreBLEU
 python -m translationbench fetch --testset wmt14 --langpair en-fr --out-dir data/
 
-# Run the full with-context vs without-context experiment (needs ANTHROPIC_API_KEY)
+# Run the full with-context vs without-context experiment
+# (needs GOOGLE_API_KEY; optionally GEMINI_MODEL to pin the production model)
 python -m translationbench experiment \
   --source data/src.en.txt --reference data/ref.fr.txt \
   --source-lang English --target-lang "Canadian French" \
@@ -62,11 +63,15 @@ with 1:1 alignment only.
 
 ## Notes
 
-- The translation adapter uses the Anthropic API (`claude-opus-5`) with
-  structured outputs to guarantee segment alignment. Server-side refusal
-  fallbacks are enabled. Other engines can be benchmarked by implementing
-  `Translator` (see `translationbench/translators.py`) or by scoring their
-  output files directly with `score`.
+- **Engines.** The default engine is Gemini (`--engine gemini`), configured
+  exactly like the [Synzo](https://synzo.ai) production pipeline: same SDK,
+  same `GOOGLE_API_KEY` / `GEMINI_MODEL` environment variables, and — in
+  sentence mode — the verbatim production per-segment prompt, so the baseline
+  measures the real pipeline, not an approximation of it. `--engine claude`
+  (Anthropic API, structured outputs, server-side refusal fallbacks) is
+  available to show the document-context effect holds across vendors. Other
+  engines: implement `Translator` in `translationbench/translators.py`, or
+  score their output files directly with `score` (no API key needed).
 - COMET's `wmt22-comet-da` model is a ~1.5 GB one-time download; it runs on CPU
   (slow) or GPU (fast).
 - This tool evaluates translators; it is not one. It deliberately lives outside
