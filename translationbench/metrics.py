@@ -81,15 +81,36 @@ def _comet(
 
     local_path = os.environ.get(COMET_MODEL_ENV)
     if local_path:
-        checkpoint = Path(local_path)
-        if checkpoint.is_dir():
-            checkpoint = checkpoint / "model.ckpt"
-        if not checkpoint.is_file():
-            raise RuntimeError(
-                f"{COMET_MODEL_ENV} points to {local_path!r} but no "
-                f"model.ckpt was found there."
-            )
-        model = load_from_checkpoint(str(checkpoint))
+        # COMET's loader looks for hparams.yaml in the checkpoint file's
+        # PARENT directory (e.g. .../wmt22-comet-da/checkpoints/model.ckpt
+        # pairs with .../wmt22-comet-da/hparams.yaml). If the user gave us a
+        # flat folder holding both, transparently reshape it to that layout
+        # by symlinking (or copying, on Windows without dev mode) into a
+        # `checkpoints/` subfolder — no manual mkdir needed.
+        root = Path(local_path)
+        if root.is_file():
+            root = root.parent
+        if not root.is_dir():
+            raise RuntimeError(f"{COMET_MODEL_ENV} points to {local_path!r} which is not a folder.")
+
+        model_ckpt = root / "checkpoints" / "model.ckpt"
+        hparams = root / "hparams.yaml"
+        if not model_ckpt.is_file():
+            flat_ckpt = root / "model.ckpt"
+            if flat_ckpt.is_file() and hparams.is_file():
+                (root / "checkpoints").mkdir(exist_ok=True)
+                try:
+                    model_ckpt.symlink_to(flat_ckpt)
+                except (OSError, NotImplementedError):
+                    import shutil
+                    shutil.move(str(flat_ckpt), str(model_ckpt))
+            else:
+                raise RuntimeError(
+                    f"{COMET_MODEL_ENV}={local_path!r}: expected either "
+                    f"checkpoints/model.ckpt + hparams.yaml, or a flat "
+                    f"folder containing model.ckpt + hparams.yaml."
+                )
+        model = load_from_checkpoint(str(model_ckpt))
     else:
         model = load_from_checkpoint(download_model(COMET_MODEL))
     data = [

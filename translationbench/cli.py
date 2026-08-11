@@ -11,13 +11,30 @@ from .translators import make_translator
 
 
 def cmd_score(args):
+    from pathlib import Path
+
     sources = corpora.load_lines(args.source)
     references = corpora.load_lines(args.reference)
     candidates = corpora.load_lines(args.candidate)
     result = metrics.score(
         sources, candidates, references, use_comet=args.comet, gpus=args.gpus
     )
-    print(json.dumps(result.to_dict(), indent=2))
+    payload = result.to_dict()
+    payload["candidate"] = str(args.candidate)
+    payload["source"] = str(args.source)
+    payload["reference"] = str(args.reference)
+
+    # Persist alongside the candidate file so scores never live only in stdout.
+    # Filename ties the score to the candidate that produced it, so scoring
+    # different candidates from the same experiment doesn't clobber each other.
+    cand_path = Path(args.candidate)
+    default_out = cand_path.with_name(f"score.{cand_path.stem}.json")
+    out_path = Path(args.out) if args.out else default_out
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    print(json.dumps(payload, indent=2))
+    print(f"Wrote {out_path}")
 
 
 def cmd_fetch(args):
@@ -126,6 +143,9 @@ def main(argv=None):
     p.add_argument("--candidate", required=True)
     p.add_argument("--comet", action="store_true", help="Also compute COMET")
     p.add_argument("--gpus", type=int, default=0)
+    p.add_argument("--out", default=None,
+                   help="Path to write the JSON scores (default: "
+                        "score.<candidate-stem>.json next to the candidate)")
     p.set_defaults(func=cmd_score)
 
     p = sub.add_parser("fetch", help="Download a WMT test set via sacreBLEU")

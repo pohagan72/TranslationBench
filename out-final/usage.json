@@ -1,0 +1,63 @@
+{
+  "per_mode": {
+    "sentence": {
+      "model": "gemini-3.6-flash",
+      "counts": {
+        "calls": 500,
+        "prompt_tokens": 83586,
+        "cached_tokens": 0,
+        "output_tokens": 7170,
+        "thinking_tokens": 279661
+      },
+      "estimated_cost": {
+        "model_priced": true,
+        "usd": 2.276612,
+        "breakdown": {
+          "non_cached_input_tokens": 83586,
+          "cached_input_tokens": 0,
+          "output_and_thinking_tokens": 286831
+        },
+        "prices_used_per_1m_usd": {
+          "input_per_1m": 1.5,
+          "cached_input_per_1m": 0.375,
+          "output_per_1m": 7.5
+        }
+      }
+    },
+    "context": {
+      "model": "gemini-3.6-flash",
+      "counts": {
+        "calls": 21,
+        "prompt_tokens": 137134,
+        "cached_tokens": 30625,
+        "output_tokens": 9517,
+        "thinking_tokens": 62470
+      },
+      "estimated_cost": {
+        "model_priced": true,
+        "usd": 0.71115,
+        "breakdown": {
+          "non_cached_input_tokens": 106509,
+          "cached_input_tokens": 30625,
+          "output_and_thinking_tokens": 71987
+        },
+        "prices_used_per_1m_usd": {
+          "input_per_1m": 1.5,
+          "cached_input_per_1m": 0.375,
+          "output_per_1m": 7.5
+        }
+      }
+    }
+  },
+  "total": {
+    "counts": {
+      "calls": 521,
+      "prompt_tokens": 220720,
+      "cached_tokens": 30625,
+      "output_tokens": 16687,
+      "thinking_tokens": 342131
+    },
+    "estimated_cost_usd": 2.987762,
+    "priced": true
+  }
+}

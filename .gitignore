@@ -14,6 +14,10 @@ data/
 out/
 out-*/
 *.comet-cache/
+wmt22-comet-da/      # 2.3 GB COMET checkpoint (downloaded manually)
+# NOTE: out-final/ holds the RFI headline results and is tracked in git.
+# Add its files with `git add -f out-final/...`; a per-folder .gitignore
+# inside that folder allowlists exactly which files matter.
 
 # OS / editor
 .DS_Store
