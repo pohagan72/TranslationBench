@@ -1,5 +1,8 @@
 sacrebleu>=2.4
 google-generativeai>=0.8   # default engine (matches the Synzo production stack)
 anthropic>=0.86            # optional second engine (--engine claude)
+datasets>=2.14             # needed only for the `hansard` subcommand
 # Optional (COMET semantic scores; requires torch — Python 3.11/3.12 recommended):
-#   pip install "unbabel-comet>=2.2"
+#   pip install "unbabel-comet>=2.2" "setuptools<81"
+# (torchmetrics, pulled in by unbabel-comet, imports pkg_resources; that was
+# removed in setuptools 80. Pin below 81 until torchmetrics catches up.)

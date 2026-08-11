@@ -1,0 +1,83 @@
+"""Fetch sentence-aligned Canadian Hansard EN-FR pairs from Hugging Face.
+
+Source: raeidsaqur/Hansard on Hugging Face (parliamentary proceedings; formal
+government register — as close to CMHC's domain as freely-available public data
+gets). Emits two line-aligned UTF-8 text files ready for the benchmark harness.
+"""
+
+from __future__ import annotations
+
+import random
+from pathlib import Path
+
+from .corpora import save_lines
+
+DATASET_ID = "raeidsaqur/Hansard"
+
+
+def _load_pairs(
+    split: str,
+    limit: int | None,
+    seed: int | None,
+    min_len: int,
+    max_len: int,
+) -> tuple[list[str], list[str]]:
+    try:
+        from datasets import load_dataset
+    except ImportError as exc:
+        raise RuntimeError(
+            'The Hansard loader needs the "datasets" package. '
+            'Run: pip install "datasets>=2.14"'
+        ) from exc
+
+    ds = load_dataset(DATASET_ID, split=split)
+
+    def keep(row: dict) -> bool:
+        en, fr = (row.get("en") or "").strip(), (row.get("fr") or "").strip()
+        if not en or not fr:
+            return False
+        return min_len <= len(en) <= max_len and min_len <= len(fr) <= max_len
+
+    ds = ds.filter(keep)
+
+    if seed is not None:
+        ds = ds.shuffle(seed=seed)
+    if limit is not None:
+        ds = ds.select(range(min(limit, len(ds))))
+
+    return (
+        [row["en"].strip().replace("\n", " ") for row in ds],
+        [row["fr"].strip().replace("\n", " ") for row in ds],
+    )
+
+
+def fetch_hansard(
+    out_dir: str | Path,
+    split: str = "test",
+    limit: int | None = 500,
+    seed: int | None = 42,
+    min_len: int = 20,
+    max_len: int = 400,
+) -> tuple[Path, Path]:
+    """Fetch a sample of sentence-aligned Hansard EN-FR pairs.
+
+    Defaults: 500 randomly-sampled test-split segments, deterministic
+    (seed=42), 20-400 chars per segment (drops single-word ceremonial
+    lines and one-line motions with attached transcripts).
+    """
+    en_lines, fr_lines = _load_pairs(split, limit, seed, min_len, max_len)
+    if len(en_lines) != len(fr_lines):
+        raise RuntimeError(
+            f"Loader produced misaligned output: {len(en_lines)} EN vs "
+            f"{len(fr_lines)} FR."
+        )
+
+    out_dir = Path(out_dir)
+    tag = f"hansard.{split}.n{len(en_lines)}"
+    if seed is not None:
+        tag += f".seed{seed}"
+    src_path = out_dir / f"{tag}.en.txt"
+    ref_path = out_dir / f"{tag}.fr.txt"
+    save_lines(src_path, en_lines)
+    save_lines(ref_path, fr_lines)
+    return src_path, ref_path

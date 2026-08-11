@@ -7,6 +7,7 @@ __pycache__/
 *.py[cod]
 venv/
 .venv/
+.venv-*/
 
 # Data, model caches, and outputs
 data/

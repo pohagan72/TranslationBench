@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from . import corpora, metrics
+from . import corpora, hansard, metrics
 from .report import write_reports
 from .translators import make_translator
 
@@ -21,6 +21,18 @@ def cmd_score(args):
 
 def cmd_fetch(args):
     src, ref = corpora.fetch_wmt(args.testset, args.langpair, args.out_dir)
+    print(f"Wrote {src}\nWrote {ref}")
+
+
+def cmd_hansard(args):
+    src, ref = hansard.fetch_hansard(
+        args.out_dir,
+        split=args.split,
+        limit=args.limit,
+        seed=None if args.seed == -1 else args.seed,
+        min_len=args.min_len,
+        max_len=args.max_len,
+    )
     print(f"Wrote {src}\nWrote {ref}")
 
 
@@ -85,6 +97,20 @@ def main(argv=None):
     p.add_argument("--langpair", default="en-fr")
     p.add_argument("--out-dir", default="data")
     p.set_defaults(func=cmd_fetch)
+
+    p = sub.add_parser(
+        "hansard",
+        help="Fetch Canadian Hansard EN-FR pairs (parliamentary; government register)",
+    )
+    p.add_argument("--out-dir", default="data")
+    p.add_argument("--split", choices=["train", "test"], default="test")
+    p.add_argument("--limit", type=int, default=500,
+                   help="Number of aligned segments to keep (default 500)")
+    p.add_argument("--seed", type=int, default=42,
+                   help="Shuffle seed for reproducibility; use --seed -1 to skip shuffle")
+    p.add_argument("--min-len", type=int, default=20)
+    p.add_argument("--max-len", type=int, default=400)
+    p.set_defaults(func=cmd_hansard)
 
     p = sub.add_parser("translate", help="Translate a source file with Claude")
     p.add_argument("--input", required=True)

@@ -29,7 +29,10 @@ python -m translationbench score \
   --source data/src.en.txt --reference data/ref.fr.txt \
   --candidate out/candidate.fr.txt --comet
 
-# Fetch a standard test set (WMT14 EN-FR) via sacreBLEU
+# Fetch Canadian Hansard EN-FR pairs (parliamentary; government register)
+python -m translationbench hansard --out-dir data/ --limit 500
+
+# Or a generic WMT test set via sacreBLEU
 python -m translationbench fetch --testset wmt14 --langpair en-fr --out-dir data/
 
 # Run the full with-context vs without-context experiment
@@ -55,9 +58,13 @@ both modes plus per-segment COMET deltas.
 
 ## Corpora
 
-Any sentence-aligned parallel text works. Recommended for Canadian
-government-register EN↔FR: the **Canadian Hansard** (parliamentary proceedings).
-WMT test sets are available via `fetch` as a generic fallback. Client-provided
+Any sentence-aligned parallel text works. The `hansard` subcommand fetches
+sentence-aligned **Canadian Hansard** EN-FR pairs (parliamentary proceedings;
+formal government register — as close to CMHC's housing/policy domain as
+freely-available public data gets) from Hugging Face
+([`raeidsaqur/Hansard`](https://huggingface.co/datasets/raeidsaqur/Hansard);
+first run downloads ~200 MB). Requires `pip install "datasets>=2.14"`. WMT
+test sets are available via `fetch` as a generic fallback. Client-provided
 translation memories (TMX) can be converted to aligned text files — segments
 with 1:1 alignment only.
 
