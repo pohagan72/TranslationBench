@@ -1,10 +1,16 @@
 """Corpus-level BLEU/chrF (sacreBLEU) and COMET scoring."""
 
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import sacrebleu
 
 COMET_MODEL = "Unbabel/wmt22-comet-da"
+# Point at a locally-downloaded checkpoint (folder containing model.ckpt +
+# hparams.yaml) via TRANSLATIONBENCH_COMET_MODEL when the network can't
+# reach Hugging Face's file storage.
+COMET_MODEL_ENV = "TRANSLATIONBENCH_COMET_MODEL"
 
 
 @dataclass
@@ -73,7 +79,19 @@ def _comet(
             "(requires torch; Python 3.11/3.12 recommended)."
         ) from exc
 
-    model = load_from_checkpoint(download_model(COMET_MODEL))
+    local_path = os.environ.get(COMET_MODEL_ENV)
+    if local_path:
+        checkpoint = Path(local_path)
+        if checkpoint.is_dir():
+            checkpoint = checkpoint / "model.ckpt"
+        if not checkpoint.is_file():
+            raise RuntimeError(
+                f"{COMET_MODEL_ENV} points to {local_path!r} but no "
+                f"model.ckpt was found there."
+            )
+        model = load_from_checkpoint(str(checkpoint))
+    else:
+        model = load_from_checkpoint(download_model(COMET_MODEL))
     data = [
         {"src": s, "mt": c, "ref": r}
         for s, c, r in zip(sources, candidates, references)
