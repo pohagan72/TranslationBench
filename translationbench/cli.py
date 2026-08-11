@@ -39,11 +39,16 @@ def cmd_hansard(args):
 
 def cmd_translate(args):
     segments = corpora.load_lines(args.input)
-    translator = make_translator(args.engine, args.model)
-    out = translator.translate(
-        segments, args.source_lang, args.target_lang,
-        document_context=(args.mode == "context"),
-    )
+    translator = make_translator(args.engine, args.model, thinking=args.thinking)
+    if args.mode == "whole":
+        if not hasattr(translator, "translate_whole"):
+            sys.exit(f"{args.engine} engine does not support --mode whole")
+        out = translator.translate_whole(segments, args.target_lang)
+    else:
+        out = translator.translate(
+            segments, args.source_lang, args.target_lang,
+            document_context=(args.mode == "context"),
+        )
     corpora.save_lines(args.out, out)
     print(f"Wrote {len(out)} segments to {args.out}")
 
@@ -56,23 +61,40 @@ def cmd_experiment(args):
     if args.limit:
         sources, references = sources[: args.limit], references[: args.limit]
 
-    translator = make_translator(args.engine, args.model)
+    translator = make_translator(args.engine, args.model, thinking=args.thinking)
     runs = {}
-    for mode, with_doc in (("sentence", False), ("context", True)):
+    for mode in args.modes:
         print(f"Translating {len(sources)} segments ({mode} mode)...", flush=True)
-        candidates = translator.translate(
-            sources, args.source_lang, args.target_lang, document_context=with_doc
-        )
+        if mode == "sentence":
+            candidates = translator.translate(
+                sources, args.source_lang, args.target_lang, document_context=False
+            )
+        elif mode == "context":
+            candidates = translator.translate(
+                sources, args.source_lang, args.target_lang, document_context=True
+            )
+        elif mode == "whole":
+            if not hasattr(translator, "translate_whole"):
+                sys.exit(f"{args.engine} engine does not support --modes whole")
+            candidates = translator.translate_whole(sources, args.target_lang)
+        else:
+            sys.exit(f"Unknown mode: {mode}")
+
         corpora.save_lines(f"{args.out_dir}/candidate.{mode}.txt", candidates)
         print(f"Scoring ({mode})...", flush=True)
         runs[mode] = metrics.score(
             sources, candidates, references, use_comet=not args.no_comet, gpus=args.gpus
         )
 
-    json_path, html_path = write_reports(
-        args.out_dir, translator.label, len(sources), runs["sentence"], runs["context"]
-    )
-    print(f"Wrote {json_path}\nWrote {html_path}")
+    # Build report only for the two-mode sentence/context comparison; if only
+    # one mode ran, or `whole` is in the mix, dump raw metrics for now.
+    if set(args.modes) == {"sentence", "context"}:
+        json_path, html_path = write_reports(
+            args.out_dir, translator.label, len(sources),
+            runs["sentence"], runs["context"],
+        )
+        print(f"Wrote {json_path}\nWrote {html_path}")
+
     for mode, s in runs.items():
         comet = f", COMET {s.comet:.4f}" if s.comet is not None else ""
         print(f"  {mode:>9}: BLEU {s.bleu:.2f}, chrF {s.chrf:.2f}{comet}")
@@ -120,12 +142,14 @@ def main(argv=None):
     p = sub.add_parser("translate", help="Translate a source file with Claude")
     p.add_argument("--input", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--mode", choices=["sentence", "context"], default="context")
+    p.add_argument("--mode", choices=["sentence", "context", "whole"], default="context")
     p.add_argument("--source-lang", required=True)
     p.add_argument("--target-lang", required=True)
     p.add_argument("--engine", choices=["gemini", "claude"], default="gemini")
     p.add_argument("--model", default=None,
                    help="Override the engine default (Gemini: $GEMINI_MODEL)")
+    p.add_argument("--thinking", action="store_true",
+                   help="Enable server-side thinking on Gemini (context/whole modes)")
     p.set_defaults(func=cmd_translate)
 
     p = sub.add_parser(
@@ -143,6 +167,18 @@ def main(argv=None):
     p.add_argument("--limit", type=int, help="Only use the first N segments")
     p.add_argument("--no-comet", action="store_true", help="Skip COMET (BLEU/chrF only)")
     p.add_argument("--gpus", type=int, default=0)
+    p.add_argument(
+        "--modes",
+        nargs="+",
+        choices=["sentence", "context", "whole"],
+        default=["sentence", "context"],
+        help='Which modes to run (default: "sentence context"). '
+             'Add "whole" for one-call whole-document translation.',
+    )
+    p.add_argument(
+        "--thinking", action="store_true",
+        help="Enable server-side thinking on Gemini (context/whole modes)",
+    )
     p.set_defaults(func=cmd_experiment)
 
     args = parser.parse_args(argv)

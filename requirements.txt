@@ -1,5 +1,5 @@
 sacrebleu>=2.4
-google-generativeai>=0.8   # default engine (matches the Synzo production stack)
+google-genai>=1.0          # default engine (current SDK; supports caching, thinking)
 anthropic>=0.86            # optional second engine (--engine claude)
 datasets>=2.14             # needed only for the `hansard` subcommand
 hf_xet>=1.0                # HF's Xet-Storage transport; without it, some HF

@@ -12,6 +12,7 @@ venv/
 # Data, model caches, and outputs
 data/
 out/
+out-*/
 *.comet-cache/
 
 # OS / editor
