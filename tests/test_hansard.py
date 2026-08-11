@@ -104,3 +104,34 @@ def test_hansard_loader_raises_when_datasets_missing(tmp_path: Path, monkeypatch
 
     with pytest.raises(RuntimeError, match='pip install "datasets'):
         hansard.fetch_hansard(tmp_path, limit=1)
+
+
+def test_hansard_from_parquet(tmp_path: Path):
+    """The --from-parquet path reads a local parquet file and produces the
+    same aligned output as the HF loader path."""
+    pd = pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+
+    parquet = tmp_path / "test.parquet"
+    pd.DataFrame(
+        [
+            {"id": "1",
+             "en": "The report will be tabled in the House on Tuesday morning.",
+             "fr": "Le rapport sera déposé à la Chambre mardi matin."},
+            {"id": "2",
+             "en": "This is a legitimately valid parliamentary utterance for testing.",
+             "fr": "Ceci est une déclaration parlementaire légitime aux fins de test."},
+            {"id": "3", "en": "Short.", "fr": "Court."},  # dropped by min_len
+        ]
+    ).to_parquet(parquet)
+
+    from translationbench import hansard
+
+    src, ref = hansard.fetch_hansard(
+        tmp_path, from_parquet=str(parquet), limit=10, seed=42, min_len=20
+    )
+    en_lines = src.read_text(encoding="utf-8").splitlines()
+    fr_lines = ref.read_text(encoding="utf-8").splitlines()
+
+    assert len(en_lines) == 2 and len(fr_lines) == 2
+    assert "hansard.test.n2.seed42.en.txt" == src.name

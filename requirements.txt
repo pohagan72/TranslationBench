@@ -2,6 +2,10 @@ sacrebleu>=2.4
 google-generativeai>=0.8   # default engine (matches the Synzo production stack)
 anthropic>=0.86            # optional second engine (--engine claude)
 datasets>=2.14             # needed only for the `hansard` subcommand
+hf_xet>=1.0                # HF's Xet-Storage transport; without it, some HF
+                           # datasets (including raeidsaqur/Hansard) 403 on
+                           # download. On corporate networks you may also
+                           # need: pip install pip-system-certs
 # Optional (COMET semantic scores; requires torch — Python 3.11/3.12 recommended):
 #   pip install "unbabel-comet>=2.2" "setuptools<81"
 # (torchmetrics, pulled in by unbabel-comet, imports pkg_resources; that was

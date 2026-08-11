@@ -32,6 +32,7 @@ def cmd_hansard(args):
         seed=None if args.seed == -1 else args.seed,
         min_len=args.min_len,
         max_len=args.max_len,
+        from_parquet=args.from_parquet,
     )
     print(f"Wrote {src}\nWrote {ref}")
 
@@ -110,6 +111,10 @@ def main(argv=None):
                    help="Shuffle seed for reproducibility; use --seed -1 to skip shuffle")
     p.add_argument("--min-len", type=int, default=20)
     p.add_argument("--max-len", type=int, default=400)
+    p.add_argument("--from-parquet", default=None,
+                   help="Read rows from a locally-downloaded HF parquet file "
+                        "instead of the HF network (useful on networks that "
+                        "block us.aws.cdn.hf.co).")
     p.set_defaults(func=cmd_hansard)
 
     p = sub.add_parser("translate", help="Translate a source file with Claude")
